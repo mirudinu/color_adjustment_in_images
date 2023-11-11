@@ -15,18 +15,123 @@ simulated_deuteranopia_path = ''
 simulated_tritanopia_path = ''
 crt_dir = os.getcwd()
 
-def simulate_protanopia():
-    original_image = cv2.imread(current_file)
-    print(simulated_protanopia_path + " :)")
-    cv2.imwrite(simulated_protanopia_path, original_image)
+'''
+Conversion matrices
+https://daltonlens.org/understanding-cvd-simulation/
+'''
+'''
+LMS = RGB2LMS_matrix * RGB
+'''
+# RGB2LMS_matrix = np.array(  [[0.3904725 , 0.54990437, 0.00890159],
+#                             [0.07092586, 0.96310739, 0.00135809],
+#                             [0.02314268, 0.12801221, 0.93605194]
+#                             ], dtype=np.float16)
+RGB2LMS_matrix = np.array([[17.88240413, 43.51609057,  4.11934969],
+         [ 3.45564232, 27.15538246,  3.86713084],
+         [ 0.02995656,  0.18430896,  1.46708614]])
+'''
+LMS_protanopia = LMS2LMSp_matrix * LMS
+'''
+# LMS2LMSp_matrix = np.array( [[0, 0.90822864, 0.008192],
+#                             [0, 1, 0],
+#                             [0, 0, 1]
+#                             ], dtype=np.float16)
+LMS2LMSp_matrix = np.array( [[0.0, 2.02344377, -2.52580405],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0]])
+'''
+LMS_deuteranopia = LMS2LMSp_matrix * LMS
+'''
+# LMS2LMSd_matrix = np.array( [[1, 0, 0],
+#                             [1.10104433, 0, -0.00901975],
+#                             [0, 0, 1]
+#                             ], dtype=np.float16)
+LMS2LMSd_matrix = np.array( [[1.0, 0.0, 0.0],
+                            [0.49420696, 0.0, 1.24826995],
+                            [0.0, 0.0, 1.0]])
+'''
+LMS_tritanopia = LMS2LMSt_matrix * LMS
+'''
+# LMS2LMSt_matrix = np.array( [[1, 0, 0],
+#                             [0, 1, 0],
+#                             [-0.15773032,  1.19465634, 0]
+#                             ], dtype=np.float16)
+LMS2LMSt_matrix = np.array( [[ 1.0, 0.0, 0.0],
+                            [ 0.0, 1.0, 0.0],
+                            [-0.01224491, 0.07203435, 0.0]])
+'''
+RGB = LMS2RGB_matrix * LMS
+'''
+# LMS2RGB_matrix = np.array(  [[ 2.85831110e+00, -1.62870796e+00, -2.48186967e-02],
+#                             [-2.10434776e-01,  1.15841493e+00,  3.20463334e-04],
+#                             [-4.18895045e-02, -1.18154333e-01,  1.06888657e+00]
+#                             ], dtype=np.float16)
+LMS2RGB_matrix = np.array(  [[ 0.0809, -0.1305, 0.1167],
+                             [-0.0102, 0.0540, -0.1136],
+                             [-0.0004, -0.0041, 0.6935]])
 
-def simulate_deuteranopia():
-    original_image = cv2.imread(current_file)
-    cv2.imwrite(simulated_deuteranopia_path, original_image)
+gamma = 2.2
+def sRGB2linearRGB(srgb_image):
+    for i in range (srgb_image.shape[0]):
+        for j in range (srgb_image.shape[1]):
+            [r,g,b] = srgb_image[i,j]
+            r = pow(r, gamma)
+            g = pow(g, gamma)
+            b = pow(b, gamma)
+            srgb_image[i,j] = [r, g, b]
 
-def simulate_tritanopia():
+one_over_gamma = 1.0 / 2.2
+def linearRGB2sRGB(rgb_image):
+    for i in range (rgb_image.shape[0]):
+        for j in range (rgb_image.shape[1]):
+            [r,g,b] = rgb_image[i,j]
+            r = pow(r, one_over_gamma)
+            g = pow(g, one_over_gamma)
+            b = pow(b, one_over_gamma)
+            rgb_image[i,j] = [r, g, b]
+
+def simulate_colorblindness(type):
     original_image = cv2.imread(current_file)
-    cv2.imwrite(simulated_tritanopia_path, original_image)
+
+    # Reorder channels BGR -> RGB
+    red = original_image[:,:,2]
+    green = original_image[:,:,1]
+    blue = original_image[:,:,0]
+
+    rgb_image = np.zeros(original_image.shape)
+    rgb_image[:,:,0] = red
+    rgb_image[:,:,1] = green
+    rgb_image[:,:,2] = blue
+
+    sRGB2linearRGB(rgb_image)
+
+    # Convert RGB->LMS
+    lms_image = rgb_image @ RGB2LMS_matrix.T
+    # Simulate colorblindness in LMS
+    colorblind_simulation_matrix = LMS2LMSp_matrix
+    if type == 'deuteranopia':
+        colorblind_simulation_matrix = LMS2LMSd_matrix
+    elif type == 'tritanopia':
+        colorblind_simulation_matrix = LMS2LMSt_matrix
+    lms_colorblind_image = lms_image @ colorblind_simulation_matrix.T
+    # Convert LMS->RGB
+    rbg_colorblind_image = lms_colorblind_image @ LMS2RGB_matrix.T
+
+    # Reorder channels RGB->BGR
+    bgr_colorblind_image = np.zeros(original_image.shape)
+    bgr_colorblind_image[:,:,0] = rbg_colorblind_image[:,:,2]
+    bgr_colorblind_image[:,:,1] = rbg_colorblind_image[:,:,1]
+    bgr_colorblind_image[:,:,2] = rbg_colorblind_image[:,:,0]
+
+    linearRGB2sRGB(bgr_colorblind_image)
+
+    # Save result image
+    result_image_path = simulated_protanopia_path
+    if type == 'deuteranopia':
+        result_image_path = simulated_deuteranopia_path
+    elif type == 'tritanopia':
+        result_image_path = simulated_tritanopia_path
+    cv2.imwrite(result_image_path, bgr_colorblind_image)
 
 def display_protanopia_simulation():
     protanopia_text = tk.Text(window, height=1, width = 40)
@@ -94,15 +199,15 @@ def open_file():
     label1.grid(column=0, row=2, sticky='nw', padx=0, pady=0)
 
     # Insert Simulated Protanopia Image
-    simulate_protanopia()
+    simulate_colorblindness('protanopia')
     display_protanopia_simulation() 
 
     # Insert Simulated Deuteranopia Image
-    simulate_deuteranopia()
+    simulate_colorblindness('deuteranopia')
     display_deuteranopia_simulation()
 
     # Insert Simulated Tritanopia Image
-    simulate_tritanopia()
+    simulate_colorblindness('tritanopia')
     display_tritanopia_simulation()
     
 
