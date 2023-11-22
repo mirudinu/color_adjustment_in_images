@@ -22,50 +22,30 @@ https://daltonlens.org/understanding-cvd-simulation/
 '''
 LMS = RGB2LMS_matrix * RGB
 '''
-# RGB2LMS_matrix = np.array(  [[0.3904725 , 0.54990437, 0.00890159],
-#                             [0.07092586, 0.96310739, 0.00135809],
-#                             [0.02314268, 0.12801221, 0.93605194]
-#                             ], dtype=np.float16)
 RGB2LMS_matrix = np.array([[17.88240413, 43.51609057,  4.11934969],
          [ 3.45564232, 27.15538246,  3.86713084],
          [ 0.02995656,  0.18430896,  1.46708614]])
 '''
 LMS_protanopia = LMS2LMSp_matrix * LMS
 '''
-# LMS2LMSp_matrix = np.array( [[0, 0.90822864, 0.008192],
-#                             [0, 1, 0],
-#                             [0, 0, 1]
-#                             ], dtype=np.float16)
 LMS2LMSp_matrix = np.array( [[0.0, 2.02344377, -2.52580405],
                             [0.0, 1.0, 0.0],
                             [0.0, 0.0, 1.0]])
 '''
 LMS_deuteranopia = LMS2LMSp_matrix * LMS
 '''
-# LMS2LMSd_matrix = np.array( [[1, 0, 0],
-#                             [1.10104433, 0, -0.00901975],
-#                             [0, 0, 1]
-#                             ], dtype=np.float16)
 LMS2LMSd_matrix = np.array( [[1.0, 0.0, 0.0],
                             [0.49420696, 0.0, 1.24826995],
                             [0.0, 0.0, 1.0]])
 '''
 LMS_tritanopia = LMS2LMSt_matrix * LMS
 '''
-# LMS2LMSt_matrix = np.array( [[1, 0, 0],
-#                             [0, 1, 0],
-#                             [-0.15773032,  1.19465634, 0]
-#                             ], dtype=np.float16)
 LMS2LMSt_matrix = np.array( [[ 1.0, 0.0, 0.0],
                             [ 0.0, 1.0, 0.0],
                             [-0.01224491, 0.07203435, 0.0]])
 '''
 RGB = LMS2RGB_matrix * LMS
 '''
-# LMS2RGB_matrix = np.array(  [[ 2.85831110e+00, -1.62870796e+00, -2.48186967e-02],
-#                             [-2.10434776e-01,  1.15841493e+00,  3.20463334e-04],
-#                             [-4.18895045e-02, -1.18154333e-01,  1.06888657e+00]
-#                             ], dtype=np.float16)
 LMS2RGB_matrix = np.array(  [[ 0.0809, -0.1305, 0.1167],
                              [-0.0102, 0.0540, -0.1136],
                              [-0.0004, -0.0041, 0.6935]])
@@ -75,9 +55,9 @@ def sRGB2linearRGB(srgb_image):
     for i in range (srgb_image.shape[0]):
         for j in range (srgb_image.shape[1]):
             [r,g,b] = srgb_image[i,j]
-            r = pow(r, gamma)
-            g = pow(g, gamma)
-            b = pow(b, gamma)
+            r = pow(r/255.0, gamma)
+            g = pow(g/255.0, gamma)
+            b = pow(b/255.0, gamma)
             srgb_image[i,j] = [r, g, b]
 
 one_over_gamma = 1.0 / 2.2
@@ -85,9 +65,9 @@ def linearRGB2sRGB(rgb_image):
     for i in range (rgb_image.shape[0]):
         for j in range (rgb_image.shape[1]):
             [r,g,b] = rgb_image[i,j]
-            r = pow(r, one_over_gamma)
-            g = pow(g, one_over_gamma)
-            b = pow(b, one_over_gamma)
+            r = pow(r, one_over_gamma) * 255.0
+            g = pow(g, one_over_gamma) * 255.0
+            b = pow(b, one_over_gamma) * 255.0
             rgb_image[i,j] = [r, g, b]
 
 def simulate_colorblindness(type):
